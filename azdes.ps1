@@ -1,14 +1,9 @@
-$resourceGroup="testrg2"
+$resourceGroup="testrg"
 $location="Australia Southeast"
 $keyVaultName="bandakeyvault"
 $keyName="bandakey"
 $keyDestination="Software"
 $diskEncryptionSetName="bandades"
-
-#Create Resource Group
-New-AzResourceGroup `
--Name $resourceGroup `
--Location $location
 
 #Create KeyVault
 $keyVault = New-AzKeyVault -Name $keyVaultName `
@@ -27,13 +22,14 @@ $key = Add-AzKeyVaultKey -VaultName $keyVaultName `
 #Create Disk Encryption Set with double encryption
 $desConfig=New-AzDiskEncryptionSetConfig `
 -Location $location `
--EncryptionType EncryptionAtRestWithPlatformAndCustomerKeys `
+-EncryptionType "EncryptionAtRestWithPlatformAndCustomerKeys" `
 -SourceVaultId $keyVault.ResourceId `
 -KeyUrl $key.Key.Kid `
--IdentityType SystemAssigned `
+-IdentityType "SystemAssigned" `
 -RotationToLatestKeyVersionEnabled $true
   
-$des=New-AzDiskEncryptionSet -Name $diskEncryptionSetName `
+$des=New-AzDiskEncryptionSet `
+-Name $diskEncryptionSetName `
 -ResourceGroupName $ResourceGroup `
 -InputObject $desConfig
 
@@ -45,7 +41,7 @@ Set-AzKeyVaultAccessPolicy `
 
 #Stop the VM
 Stop-AzVM `
--Name "testvm02" `
+-Name "testvm01" `
 -ResourceGroupName $resourceGroup `
 -Force
 
@@ -54,11 +50,21 @@ Start-Sleep -Seconds 300
 
 #Update the encryption of OS disks of VM to Platform-managed and Customer-managed keys
 
+$diskName = "testvm01_OsDisk_1_e93cb356b361476188595e5b79811cbc"
+ 
+$diskEncryptionSet = Get-AzDiskEncryptionSet `
+-ResourceGroupName $resourceGroup `
+-Name $diskEncryptionSetName
+ 
+New-AzDiskUpdateConfig `
+-EncryptionType "EncryptionAtRestWithPlatformAndCustomerKeys" `
+-DiskEncryptionSetId $diskEncryptionSet.Id | Update-AzDisk -ResourceGroupName $resourceGroup -DiskName $diskName
+
 #Wait for 5mins(300seconds) for disks to be added to DES
 Start-Sleep -Seconds 300
 
 #Start the VM
 Start-AzVM `
 -Name "testvm01" `
--ResourceGroupName $resourceGroup `
+-ResourceGroupName $resourceGroup
 
