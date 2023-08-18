@@ -2,12 +2,10 @@ $resourceGroup="testrg"
 $location="Australia Southeast"
 $objectid="3648c0d7-dae6-4e97-a90c-72e013aa1505"
 $applicationid="795531ac-a378-4d0c-a53b-7881314d1275"
-$keyVaultName="bandakeyvault05"
-$keyName="bandakey05"
+$keyVaultName="bandakeyvault010"
+$keyName="bandakey10"
 $keyDestination="Software"
-$diskEncryptionSetName="bandades05"
-
-Register-AzResourceProvider -ProviderNamespace "Microsoft.KeyVault"
+$diskEncryptionSetName="bandades10"
 
 #Create KeyVault
 $keyVault = New-AzKeyVault -Name $keyVaultName `
@@ -22,7 +20,6 @@ Set-AzKeyVaultAccessPolicy `
 -ObjectId $objectid `
 -ApplicationId $applicationid `
 -PermissionsToKeys all `
-
 
 #Create Key
 $key = Add-AzKeyVaultKey -VaultName $keyVaultName `
@@ -51,32 +48,57 @@ Set-AzKeyVaultAccessPolicy `
 -ObjectId $des.Identity.PrincipalId `
 -PermissionsToKeys wrapkey,unwrapkey,get
 
-#Stop the VM
-Stop-AzVM `
--Name "testvm01" `
--ResourceGroupName $resourceGroup `
--Force
-
-#Wait for 5mins(300seconds) for VM to be stopped completely
-Start-Sleep -Seconds 300
-
-#Update the encryption of OS disks of VM to Platform-managed and Customer-managed keys
-
-$diskName = "testvm01_OsDisk_1_e93cb356b361476188595e5b79811cbc"
+#Get all the VMs in the specified ResourceGroup
+$vms=Get-AzVM -ResourceGroupName $resourceGroup -Status
  
-$diskEncryptionSet = Get-AzDiskEncryptionSet `
--ResourceGroupName $resourceGroup `
--Name $diskEncryptionSetName
+foreach ($vm in $vms) {
+        Write-Host "VM $($vm.Name) Power State: $($vm.PowerState)"
+        
+        # Turn OFF running VMs
+        if ($vm.PowerState -eq "VM running") {
+            Write-Host "Stopping VM $($vm.Name)"
+            Stop-AzVM -ResourceGroupName $resourceGroup -Name $vm.Name -Force
+        }
+}
+
+#Wait for 1min(60seconds) for VM to be stopped completely
+#Start-Sleep -Seconds 60
+
+#Get all the VMs in the specified ResourceGroup
+$vms=Get-AzVM -ResourceGroupName $resourceGroup -Status
+
+#Get the Disk Name of stopped VMs
+foreach ($vm in $vms) {
+    if ($vm.PowerState -eq "VM deallocated") {
+        $diskName = $vm.StorageProfile.OsDisk.Name
+        Write-Host "VM $($vm.Name) is stopped and its Disk Name is: $diskName"
+
+        # Get the disk encryption set
+        $diskEncryptionSet = Get-AzDiskEncryptionSet -ResourceGroupName $resourceGroup -Name $diskEncryptionSetName
+        
+        if ($diskEncryptionSet) {
+            # Update disk encryption
+            $diskUpdateConfig = New-AzDiskUpdateConfig -EncryptionType "EncryptionAtRestWithPlatformAndCustomerKeys" -DiskEncryptionSetId $diskEncryptionSet.Id
+            Update-AzDisk -ResourceGroupName $resourceGroup -DiskName $diskName -DiskUpdate $diskUpdateConfig
+            Write-Host "Disk encryption updated for VM $($vm.Name)"
+        } else {
+            Write-Host "Disk encryption set '$diskEncryptionSetName' not found."
+        }
+    }
+}
+
+#Wait for 1min(60seconds) for disks to be added to DES
+#Start-Sleep -Seconds 60
+
+#Get all the VMs in the specified ResourceGroup
+$vms=Get-AzVM -ResourceGroupName $resourceGroup -Status
  
-New-AzDiskUpdateConfig `
--EncryptionType "EncryptionAtRestWithPlatformAndCustomerKeys" `
--DiskEncryptionSetId $diskEncryptionSet.Id | Update-AzDisk -ResourceGroupName $resourceGroup -DiskName $diskName
-
-#Wait for 5mins(300seconds) for disks to be added to DES
-Start-Sleep -Seconds 300
-
-#Start the VM
-Start-AzVM `
--Name "testvm01" `
--ResourceGroupName $resourceGroup
-
+foreach ($vm in $vms) {
+        Write-Host "VM $($vm.Name) Power State: $($vm.PowerState)"
+        
+        # Turn ON running VMs
+        if ($vm.PowerState -eq "VM deallocated") {
+            Write-Host "Starting VM $($vm.Name)"
+            Stop-AzVM -ResourceGroupName $resourceGroup -Name $vm.Name -Force
+        }
+}
