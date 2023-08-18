@@ -2,10 +2,10 @@ $resourceGroup="testrg"
 $location="Australia Southeast"
 $objectid="3648c0d7-dae6-4e97-a90c-72e013aa1505"
 $applicationid="795531ac-a378-4d0c-a53b-7881314d1275"
-$keyVaultName="bandakeyvault010"
-$keyName="bandakey10"
+$keyVaultName="bandakeyvault011"
+$keyName="bandakey11"
 $keyDestination="Software"
-$diskEncryptionSetName="bandades10"
+$diskEncryptionSetName="bandades11"
 
 #Create KeyVault
 $keyVault = New-AzKeyVault -Name $keyVaultName `
