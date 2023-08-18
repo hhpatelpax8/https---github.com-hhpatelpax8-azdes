@@ -1,16 +1,28 @@
 $resourceGroup="testrg"
 $location="Australia Southeast"
-$keyVaultName="bandakeyvault"
-$keyName="bandakey"
+$objectid="3648c0d7-dae6-4e97-a90c-72e013aa1505"
+$applicationid="795531ac-a378-4d0c-a53b-7881314d1275"
+$keyVaultName="bandakeyvault05"
+$keyName="bandakey05"
 $keyDestination="Software"
-$diskEncryptionSetName="bandades"
+$diskEncryptionSetName="bandades05"
+
+Register-AzResourceProvider -ProviderNamespace "Microsoft.KeyVault"
 
 #Create KeyVault
 $keyVault = New-AzKeyVault -Name $keyVaultName `
 -ResourceGroupName $ResourceGroup `
 -Location $location `
 -SoftDeleteRetentionInDays 90 `
--EnablePurgeProtection
+-EnablePurgeProtection `
+
+Set-AzKeyVaultAccessPolicy `
+-VaultName $keyVaultName `
+-ResourceGroupName $resourceGroup `
+-ObjectId $objectid `
+-ApplicationId $applicationid `
+-PermissionsToKeys all `
+
 
 #Create Key
 $key = Add-AzKeyVaultKey -VaultName $keyVaultName `
